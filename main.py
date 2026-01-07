@@ -12,7 +12,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from openai import OpenAI
 
 # ================= 配置区域 =================
-API_URL = "http://117.72.97.95:9004/v1" 
+API_URL = "http://xxx/v1" 
 MODEL_NAME = "qwen3-vl-4b" 
 # ===========================================
 
