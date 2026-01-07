@@ -73,39 +73,34 @@ class VideoThread(QThread):
         self.source = 0
         
         # === 拼接模式相关变量 ===
-        self.stitching_mode = False # 默认关闭
+        self.stitching_mode = False 
         self.frame_buffer = deque(maxlen=4)
-        self.sample_rate = 1.0 # 采样间隔 (每秒采一帧用于拼接)
+        self.sample_rate = 1.0 
         
         self.last_check_time = 0
         self.last_sample_time = 0
 
     def set_config(self, source, interval, stitching_mode):
-        """一次性更新所有配置"""
         if isinstance(source, str) and source.isdigit():
             self.source = int(source)
         else:
             self.source = source
         self.interval = interval
         
-        # 如果切换了模式，清空缓存
         if self.stitching_mode != stitching_mode:
             self.frame_buffer.clear()
         self.stitching_mode = stitching_mode
 
     def stitch_images_2x2(self, frames):
-        """将4帧拼成田字格 [0,1] / [2,3]"""
         if len(frames) < 4: return frames[-1]
         
         h, w = frames[0].shape[:2]
-        # 保持统一大小
         resized = [cv2.resize(f, (w, h)) for f in frames]
         
         top = np.hstack((resized[0], resized[1]))
         bottom = np.hstack((resized[2], resized[3]))
         grid = np.vstack((top, bottom))
         
-        # 缩放一下防止过大 (0.8倍)
         h_g, w_g = grid.shape[:2]
         return cv2.resize(grid, (int(w_g*0.8), int(h_g*0.8)))
 
@@ -126,32 +121,26 @@ class VideoThread(QThread):
                 self.error_signal.emit("视频流结束")
                 break
             
-            # 1. 发送实时画面给UI (始终执行)
             self.change_pixmap_signal.emit(cv_img)
             
             curr_time = time.time()
 
-            # === 分支逻辑：拼接模式 vs 普通模式 ===
             if self.stitching_mode:
-                # [模式A: 拼接]
-                # 1. 每秒采一帧
                 if curr_time - self.last_sample_time >= self.sample_rate:
                     self.frame_buffer.append(cv_img.copy())
                     self.last_sample_time = curr_time
                 
-                # 2. 达到检测间隔 -> 拼图发送
                 if curr_time - self.last_check_time >= self.interval:
                     self.last_check_time = curr_time
                     if len(self.frame_buffer) == 4:
                         stitched_img = self.stitch_images_2x2(list(self.frame_buffer))
                         self.trigger_detection_signal.emit(stitched_img)
             else:
-                # [模式B: 普通单帧]
                 if curr_time - self.last_check_time >= self.interval:
                     self.last_check_time = curr_time
                     self.trigger_detection_signal.emit(cv_img.copy())
 
-            time.sleep(0.02) # 控制帧率
+            time.sleep(0.02) 
             
         cap.release()
 
@@ -197,12 +186,16 @@ class ModernWindow(QMainWindow):
             QPushButton#BtnStop { background-color: #f38ba8; color: #1e1e2e; }
             QPushButton#BtnStop:hover { background-color: #eba0ac; }
             QPushButton#BtnStop:disabled { background-color: #45475a; color: #6c7086; }
+            
+            /* 新增：图片检测按钮样式 */
+            QPushButton#BtnImgDetect { background-color: #f9e2af; color: #1e1e2e; margin-top: 10px; }
+            QPushButton#BtnImgDetect:hover { background-color: #fcebb6; }
+
             QTextEdit { background-color: #11111b; border: 1px solid #45475a; border-radius: 8px; padding: 10px; font-family: 'Consolas', monospace; font-size: 13px; }
             
-            /* 复选框样式 */
             QCheckBox { spacing: 8px; font-weight: bold; color: #f9e2af; }
             QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #585b70; background: #181825; }
-            QCheckBox::indicator:checked { background: #f9e2af; border: 1px solid #f9e2af; image: url(check_icon.png); } /* 简单用色块代替 */
+            QCheckBox::indicator:checked { background: #f9e2af; border: 1px solid #f9e2af; image: url(check_icon.png); } 
             QCheckBox::indicator:checked { background-color: #f9e2af; border-color: #f9e2af; }
         """)
 
@@ -236,7 +229,7 @@ class ModernWindow(QMainWindow):
         cp_layout.setContentsMargins(15, 15, 15, 15)
         cp_layout.setSpacing(15)
 
-        cp_layout.addWidget(QLabel("⚙️ 控制面板")) # 标题
+        cp_layout.addWidget(QLabel("⚙️ 控制面板"))
 
         # 视频源
         cp_layout.addWidget(QLabel("视频源 (Source):"))
@@ -245,7 +238,7 @@ class ModernWindow(QMainWindow):
         self.btn_file = QPushButton("📂")
         self.btn_file.setObjectName("BtnFile")
         self.btn_file.setFixedWidth(40)
-        self.btn_file.clicked.connect(self.select_file)
+        self.btn_file.clicked.connect(self.select_video_file)
         h_source.addWidget(self.txt_source)
         h_source.addWidget(self.btn_file)
         cp_layout.addLayout(h_source)
@@ -258,9 +251,8 @@ class ModernWindow(QMainWindow):
         self.spin_interval.setSuffix(" s")
         cp_layout.addWidget(self.spin_interval)
 
-        # [新增] 拼接模式复选框
+        # 拼接模式
         self.chk_stitch = QCheckBox("启用 4帧时序拼接 (T1-T4)")
-        self.chk_stitch.setToolTip("开启后，每秒采集一帧，将4帧拼接成田字格发送给模型。\n适合检测停车、跌倒等动作。")
         self.chk_stitch.stateChanged.connect(self.on_mode_change)
         cp_layout.addWidget(self.chk_stitch)
 
@@ -270,9 +262,9 @@ class ModernWindow(QMainWindow):
         self.txt_prompt.setText("画面中是否有人或车辆？")
         cp_layout.addWidget(self.txt_prompt)
 
-        # 按钮
+        # 视频启停按钮
         h_btns = QHBoxLayout()
-        self.btn_start = QPushButton("▶ 启动")
+        self.btn_start = QPushButton("▶ 启动监控")
         self.btn_start.setObjectName("BtnStart")
         self.btn_start.clicked.connect(self.start_video)
         self.btn_stop = QPushButton("⏹ 停止")
@@ -282,6 +274,19 @@ class ModernWindow(QMainWindow):
         h_btns.addWidget(self.btn_start, 2)
         h_btns.addWidget(self.btn_stop, 1)
         cp_layout.addLayout(h_btns)
+
+        # --- 新增分割线 ---
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        line.setStyleSheet("background-color: #45475a;")
+        cp_layout.addWidget(line)
+
+        # --- 新增：图片检测按钮 ---
+        self.btn_img_detect = QPushButton("🖼️ 上传图片并检测")
+        self.btn_img_detect.setObjectName("BtnImgDetect")
+        self.btn_img_detect.clicked.connect(self.upload_and_detect_image)
+        cp_layout.addWidget(self.btn_img_detect)
 
         # 2. 日志面板
         log_panel = QFrame()
@@ -298,18 +303,48 @@ class ModernWindow(QMainWindow):
 
         main_layout.addLayout(sidebar_layout, 25)
 
-    def select_file(self):
+    def select_video_file(self):
         fname, _ = QFileDialog.getOpenFileName(self, '选择视频', '.', "Video (*.mp4 *.avi)")
         if fname: self.txt_source.setText(fname)
 
+    # --- 新增功能：上传图片检测 ---
+    def upload_and_detect_image(self):
+        # 1. 停止当前正在运行的视频流（防止冲突）
+        if self.thread.isRunning():
+            self.stop_video()
+            self.append_log("<span style='color:#f9e2af;'>[System] 为进行图片检测，已暂停视频监控。</span>")
+
+        # 2. 选择图片文件
+        fname, _ = QFileDialog.getOpenFileName(self, '选择图片', '.', "Images (*.jpg *.png *.jpeg *.bmp *.webp)")
+        if not fname:
+            return
+
+        # 3. 读取并显示
+        img = cv2.imread(fname)
+        if img is None:
+            self.append_log(f"<span style='color:#f38ba8;'>[Error] 无法读取图片: {fname}</span>")
+            return
+        
+        self.update_image(img)
+
+        # 4. 智能调整 Prompt (如果是单图，不需要时序Prompt)
+        current_prompt = self.txt_prompt.text()
+        if self.chk_stitch.isChecked() and "T1-T4" in current_prompt:
+            self.append_log("<span style='color:#89b4fa;'>[Info] 检测到单张图片，忽略拼接设置。</span>")
+            # 可以临时自动改一下 Prompt，或者直接用用户的
+            # self.txt_prompt.setText("画面中有什么？") 
+        
+        # 5. 直接触发 LLM 分析
+        self.append_log(f"<span style='color:#f9e2af;'>[Image] 已加载图片，正在请求分析...</span>")
+        self.start_llm_detection(img)
+
     def on_mode_change(self):
-        """当用户切换模式时，自动修改 Prompt 建议"""
         if self.chk_stitch.isChecked():
-            self.txt_prompt.setText("图为T1-T4四个时刻。若车辆在4个画面完全静止，回答是。")
-            self.append_log("<span style='color:#f9e2af;'>[Mode] 已切换至：时序拼接模式 (4-Frame Stitching)</span>")
+            self.txt_prompt.setText("图为T1-T4四个时刻。若车辆在4个画面完全静止，回答“停车报警”，否则回答“没有检测到事件”。")
+            self.append_log("<span style='color:#f9e2af;'>[Mode] 切换模式: 4帧时序拼接</span>")
         else:
             self.txt_prompt.setText("画面中是否有人或车辆？")
-            self.append_log("<span style='color:#89b4fa;'>[Mode] 已切换至：单帧实时模式</span>")
+            self.append_log("<span style='color:#89b4fa;'>[Mode] 切换模式: 单帧实时检测</span>")
 
     def update_image(self, cv_img):
         target_w, target_h = self.image_label.width(), self.image_label.height()
@@ -324,7 +359,6 @@ class ModernWindow(QMainWindow):
         interval = self.spin_interval.value()
         is_stitch = self.chk_stitch.isChecked()
         
-        # 将配置传递给线程
         self.thread.set_config(source, interval, is_stitch)
         self.thread._run_flag = True
         self.thread.start()
@@ -333,7 +367,8 @@ class ModernWindow(QMainWindow):
         self.btn_stop.setEnabled(True)
         self.txt_source.setEnabled(False)
         self.btn_file.setEnabled(False)
-        self.chk_stitch.setEnabled(False) # 运行时不允许切换模式
+        self.chk_stitch.setEnabled(False) 
+        self.btn_img_detect.setEnabled(True) # 视频运行时也允许点这个（会自动暂停）
         
         mode_str = "拼接模式" if is_stitch else "单帧模式"
         self.append_log(f"<span style='color:#a6e3a1;'>▶ 监控启动 ({mode_str})</span>")
@@ -354,11 +389,11 @@ class ModernWindow(QMainWindow):
         self.btn_stop.setEnabled(False)
         self.txt_source.setEnabled(True)
         self.btn_file.setEnabled(True)
-        self.chk_stitch.setEnabled(True) # 恢复模式选择
+        self.chk_stitch.setEnabled(True)
 
     def start_llm_detection(self, frame):
         prompt = self.txt_prompt.text()
-        self.append_log(f"<span style='color:#89b4fa;'>[Request] 分析中...</span>")
+        self.append_log(f"<span style='color:#89b4fa;'>[Request] 正在发送 API...</span>")
         self.llm_worker = LLMWorker(frame, prompt)
         self.llm_worker.result_signal.connect(self.handle_llm_result)
         self.llm_worker.start()
@@ -366,31 +401,25 @@ class ModernWindow(QMainWindow):
     def handle_llm_result(self, res, cost):
         t = QDateTime.currentDateTime().toString("HH:mm:ss")
         
-        # --- 新增：在控制台(终端)打印时长，方便调试 ---
+        # --- 控制台打印时长 ---
         print(f"[{t}] 分析完成 | 耗时: {cost:.2f}s | 结果: {res}")
-        # ----------------------------------------
-
+        
         if cost > 0:
-            # === 根据返回结果判断颜色 (适配 '停车报警' vs '没有检测到') ===
             if "停车报警" in res:
-                # 红色警告风格
                 border_color = "#ff5555" 
                 display_text = f"🚨 <b style='color:#ff5555; font-size:14px;'>{res}</b>"
             elif "没有" in res or "不是" in res:
-                # 绿色安全风格
                 border_color = "#a6e3a1"
                 display_text = f"✅ <span style='color:#a6e3a1;'>{res}</span>"
             else:
-                # 其他情况
                 border_color = "#89b4fa"
                 display_text = f"<span style='color:#cdd6f4;'>{res}</span>"
 
-            # === 界面日志：包含耗时显示 ===
             self.append_log(
                 f"<div style='border-left: 4px solid {border_color}; background-color: #1e1e2e; padding: 8px; margin: 5px 0; border-radius: 4px;'>"
                 f"<div style='border-bottom: 1px dashed #45475a; padding-bottom: 4px; margin-bottom: 4px;'>"
                 f"<span style='color:#bac2de; font-family:Consolas;'>[{t}]</span> "
-                f"<span style='color:#f9e2af; font-weight:bold;'>⏱️ 耗时: {cost:.2f}s</span>"  # 这里高亮显示了时长
+                f"<span style='color:#f9e2af; font-weight:bold;'>⏱️ 耗时: {cost:.2f}s</span>"
                 f"</div>"
                 f"{display_text}"
                 f"</div>"
