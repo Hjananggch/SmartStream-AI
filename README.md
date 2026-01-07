@@ -1,7 +1,7 @@
 # SmartStream-AI: 多模态视觉语义智能监控终端
 **(SmartStream-AI: Multimodal Intelligent Vision Stream Monitor)**
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue) ![PyQt5](https://img.shields.io/badge/GUI-PyQt5-green) ![Model](https://img.shields.io/badge/Model-Qwen3--VL-purple) ![License](https://img.shields.io/badge/License-MIT-orange)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue) ![PyQt5](https://img.shields.io/badge/GUI-PyQt5-green) ![Model](https://img.shields.io/badge/Model-Qwen3--VL-purple) ![License](https://img.shields.io/badge/License-MIT-orange)
 
 > **重塑视觉检测范式：从“像素感知”到“语义推理”。**
 > SmartStream-AI 是一个基于 Qwen3-VL 大模型与时序拼图（Temporal Stitching）技术的通用视频分析平台。它允许用户通过自然语言定义监控任务，实时从视频流中提取复杂的行为语义。
