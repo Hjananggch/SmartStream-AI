@@ -151,7 +151,7 @@ class VideoThread(QThread):
 class ModernWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI Vision Pro | 多模态智能监控")
+        self.setWindowTitle("SmartStream-AI | 多模态视觉语义智能监控终端")
         
         screen = QApplication.primaryScreen().geometry()
         self.win_w = int(screen.width() * 0.8)
